@@ -21,7 +21,7 @@ import dd
 import graph as gh
 import problem as pr
 from problem import Dependency  # pylint: disable=g-importing-member
-import trace_back
+#import trace_back
 
 
 def saturate_or_goal(
@@ -65,9 +65,6 @@ def saturate_or_goal(
       if g.check(p.goal.name, goal_args):  # found goal
         break
 
-    if not added:  # saturated
-      break
-
     if level_time > timeout:
       break
 
@@ -85,7 +82,8 @@ def solve(
   status = 'saturated'
   level_times = []
 
-  dervs, eq4 = g.derive_algebra(level=0, verbose=False)
+  dervs = []
+  eq4 = []
   derives = [dervs]
   eq4s = [eq4]
   branches = []
@@ -108,50 +106,4 @@ def solve(
         status = 'solved'
         break
 
-    if not derives:  # officially saturated.
-      break
-
-    # Now we resort to algebra derivations.
-    added = []
-    while derives and not added:
-      added += dd.apply_derivations(g, derives.pop(0))
-
-    if added:
-      continue
-
-    # Final help from AR.
-    while eq4s and not added:
-      added += dd.apply_derivations(g, eq4s.pop(0))
-
-    all_added += added
-
-    if not added:  # Nothing left. saturated.
-      break
-
   return g, level_times, status, branches, all_added
-
-
-def get_proof_steps(
-    g: gh.Graph, goal: pr.Clause, merge_trivials: bool = False
-) -> tuple[
-    list[pr.Dependency],
-    list[pr.Dependency],
-    list[tuple[list[pr.Dependency], list[pr.Dependency]]],
-    dict[tuple[str, ...], int],
-]:
-  """Extract proof steps from the built DAG."""
-  goal_args = g.names2nodes(goal.args)
-  query = Dependency(goal.name, goal_args, None, None)
-
-  setup, aux, log, setup_points = trace_back.get_logs(
-      query, g, merge_trivials=merge_trivials
-  )
-
-  refs = {}
-  setup = trace_back.point_log(setup, refs, set())
-  aux = trace_back.point_log(aux, refs, setup_points)
-
-  setup = [(prems, [tuple(p)]) for p, prems in setup]
-  aux = [(prems, [tuple(p)]) for p, prems in aux]
-
-  return setup, aux, log, refs

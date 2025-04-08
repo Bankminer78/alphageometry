@@ -1,0 +1,37 @@
+python -m alphageometry \
+--alsologtostderr \
+--problems_file=$(pwd)/jgex_ag_231.txt \
+--problem_name=examples/complete2/003/complete_011_7_Book_00EE_03_E037-25.gex \
+--mode=ddar \
+"${DDAR_ARGS[@]}"
+
+
+python -m alphageometry \
+--alsologtostderr \
+--problems_file=$(pwd)/imo_ag_30.txt \
+--problem_name=translated_imo_2012_p1 \
+--mode=ddar \
+"${DDAR_ARGS[@]}"
+
+python -m coverage run --source=ar alphageometry \
+--alsologtostderr \
+--problems_file=$(pwd)/imo_ag_30.txt \
+--problem_name=translated_imo_2022_p4 \
+--mode=ddar \
+"${DDAR_ARGS[@]}"
+
+
+python -m alphageometry \
+--alsologtostderr \
+--problems_file=$(pwd)/jgex_ag_231.txt \
+--problem_name=examples/complete2/003/complete_011_7_Book_00EE_03_E037-25.gex \
+--mode=ddar \
+"${DDAR_ARGS[@]}"
+
+
+python -m coverage run --source=ar alphageometry.py \
+--alsologtostderr \
+--problems_file=$(pwd)/jgex_ag_231.txt \
+--problem_name=examples/complete2/012/complete_001_6_GDD_FULL_01-20_19.gex \
+--mode=ddar \
+"${DDAR_ARGS[@]}"   

@@ -27,186 +27,120 @@ import numericals as nm
 import problem as pr
 from problem import Dependency, EmptyDependency
 
-
-def intersect1(set1: set[Any], set2: set[Any]) -> Any:
-  for x in set1:
-    if x in set2:
-      return x
-  return None
-
-
-def diff_point(l: gm.Line, a: gm.Point) -> gm.Point:
-  for x in l.neighbors(gm.Point):
-    if x != a:
-      return x
-  return None
-
-
 # pylint: disable=protected-access
 # pylint: disable=unused-argument
 
 
-def match_eqratio_eqratio_eqratio(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqratio a b c d m n p q, eqratio c d e f p q r u => eqratio a b e f m n r u."""
-  for m1 in g.type2nodes[gm.Value]:
-    for m2 in g.type2nodes[gm.Value]:
-      rats1 = []
-      for rat in m1.neighbors(gm.Ratio):
-        l1, l2 = rat.lengths
-        if l1 is None or l2 is None:
-          continue
-        rats1.append((l1, l2))
+# def match_eqratio_eqratio_eqratio(
+#     g: gh.Graph,
+#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
+#     theorem: pr.Theorem,
+# ) -> Generator[dict[str, gm.Point], None, None]:
+#   """Match eqratio a b c d m n p q, eqratio c d e f p q r u => eqratio a b e f m n r u."""
+#   for m1 in g.type2nodes[gm.Value]:
+#     for m2 in g.type2nodes[gm.Value]:
+#       rats1 = []
+#       for rat in m1.neighbors(gm.Ratio):
+#         l1, l2 = rat.lengths
+#         if l1 is None or l2 is None:
+#           continue
+#         rats1.append((l1, l2))
 
-      rats2 = []
-      for rat in m2.neighbors(gm.Ratio):
-        l1, l2 = rat.lengths
-        if l1 is None or l2 is None:
-          continue
-        rats2.append((l1, l2))
+#       rats2 = []
+#       for rat in m2.neighbors(gm.Ratio):
+#         l1, l2 = rat.lengths
+#         if l1 is None or l2 is None:
+#           continue
+#         rats2.append((l1, l2))
 
-      pairs = []
-      for (l1, l2), (l3, l4) in utils.cross(rats1, rats2):
-        if l2 == l3:
-          pairs.append((l1, l2, l4))
+#       pairs = []
+#       for (l1, l2), (l3, l4) in utils.cross(rats1, rats2):
+#         if l2 == l3:
+#           pairs.append((l1, l2, l4))
 
-      for (l1, l12, l2), (l3, l34, l4) in utils.comb2(pairs):
-        if (l1, l12, l2) == (l3, l34, l4):
-          continue
-        if l1 == l2 or l3 == l4:
-          continue
-        if l1 == l12 or l12 == l2 or l3 == l34 or l4 == l34:
-          continue
-        # d12 - d1 = d34 - d3 = m1
-        # d2 - d12 = d4 - d34 = m2
-        # => d2 - d1 = d4 - d3 (= m1+m2)
-        a, b = g.two_points_of_length(l1)
-        c, d = g.two_points_of_length(l12)
-        m, n = g.two_points_of_length(l3)
-        p, q = g.two_points_of_length(l34)
-        # eqangle a b c d m n p q
-        e, f = g.two_points_of_length(l2)
-        r, u = g.two_points_of_length(l4)
-        yield dict(zip('abcdefmnpqru', [a, b, c, d, e, f, m, n, p, q, r, u]))
-
-
-def match_eqangle_eqangle_eqangle(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqangle a b c d m n p q, eqangle c d e f p q r u => eqangle a b e f m n r u."""
-  for m1 in g.type2nodes[gm.Measure]:
-    for m2 in g.type2nodes[gm.Measure]:
-      angs1 = []
-      for ang in m1.neighbors(gm.Angle):
-        d1, d2 = ang.directions
-        if d1 is None or d2 is None:
-          continue
-        angs1.append((d1, d2))
-
-      angs2 = []
-      for ang in m2.neighbors(gm.Angle):
-        d1, d2 = ang.directions
-        if d1 is None or d2 is None:
-          continue
-        angs2.append((d1, d2))
-
-      pairs = []
-      for (d1, d2), (d3, d4) in utils.cross(angs1, angs2):
-        if d2 == d3:
-          pairs.append((d1, d2, d4))
-
-      for (d1, d12, d2), (d3, d34, d4) in utils.comb2(pairs):
-        if (d1, d12, d2) == (d3, d34, d4):
-          continue
-        if d1 == d2 or d3 == d4:
-          continue
-        if d1 == d12 or d12 == d2 or d3 == d34 or d4 == d34:
-          continue
-        # d12 - d1 = d34 - d3 = m1
-        # d2 - d12 = d4 - d34 = m2
-        # => d2 - d1 = d4 - d3
-        a, b = g.two_points_on_direction(d1)
-        c, d = g.two_points_on_direction(d12)
-        m, n = g.two_points_on_direction(d3)
-        p, q = g.two_points_on_direction(d34)
-        # eqangle a b c d m n p q
-        e, f = g.two_points_on_direction(d2)
-        r, u = g.two_points_on_direction(d4)
-        yield dict(zip('abcdefmnpqru', [a, b, c, d, e, f, m, n, p, q, r, u]))
+#       for (l1, l12, l2), (l3, l34, l4) in utils.comb2(pairs):
+#         if (l1, l12, l2) == (l3, l34, l4):
+#           continue
+#         if l1 == l2 or l3 == l4:
+#           continue
+#         if l1 == l12 or l12 == l2 or l3 == l34 or l4 == l34:
+#           continue
+#         # d12 - d1 = d34 - d3 = m1
+#         # d2 - d12 = d4 - d34 = m2
+#         # => d2 - d1 = d4 - d3 (= m1+m2)
+#         a, b = g.two_points_of_length(l1)
+#         c, d = g.two_points_of_length(l12)
+#         m, n = g.two_points_of_length(l3)
+#         p, q = g.two_points_of_length(l34)
+#         # eqangle a b c d m n p q
+#         e, f = g.two_points_of_length(l2)
+#         r, u = g.two_points_of_length(l4)
+#         yield dict(zip('abcdefmnpqru', [a, b, c, d, e, f, m, n, p, q, r, u]))
 
 
-def match_perp_perp_npara_eqangle(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match perp A B C D, perp E F G H, npara A B E F => eqangle A B E F C D G H."""
-  dpairs = []
-  for ang in g.vhalfpi.neighbors(gm.Angle):
-    d1, d2 = ang.directions
-    if d1 is None or d2 is None:
-      continue
-    dpairs.append((d1, d2))
+# def match_eqangle_eqangle_eqangle(
+#     g: gh.Graph,
+#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
+#     theorem: pr.Theorem,
+# ) -> Generator[dict[str, gm.Point], None, None]:
+#   """Match eqangle a b c d m n p q, eqangle c d e f p q r u => eqangle a b e f m n r u."""
+#   for m1 in g.type2nodes[gm.Measure]:
+#     for m2 in g.type2nodes[gm.Measure]:
+#       angs1 = []
+#       for ang in m1.neighbors(gm.Angle):
+#         d1, d2 = ang.directions
+#         if d1 is None or d2 is None:
+#           continue
+#         angs1.append((d1, d2))
 
-  for (d1, d2), (d3, d4) in utils.comb2(dpairs):
-    a, b = g.two_points_on_direction(d1)
-    c, d = g.two_points_on_direction(d2)
-    m, n = g.two_points_on_direction(d3)
-    p, q = g.two_points_on_direction(d4)
-    if g.check_npara([a, b, m, n]):
-      if ({a, b}, {c, d}) == ({m, n}, {p, q}):
-        continue
-      if ({a, b}, {c, d}) == ({p, q}, {m, n}):
-        continue
+#       angs2 = []
+#       for ang in m2.neighbors(gm.Angle):
+#         d1, d2 = ang.directions
+#         if d1 is None or d2 is None:
+#           continue
+#         angs2.append((d1, d2))
 
-      yield dict(zip('ABCDEFGH', [a, b, c, d, m, n, p, q]))
+#       pairs = []
+#       for (d1, d2), (d3, d4) in utils.cross(angs1, angs2):
+#         if d2 == d3:
+#           pairs.append((d1, d2, d4))
+
+#       for (d1, d12, d2), (d3, d34, d4) in utils.comb2(pairs):
+#         if (d1, d12, d2) == (d3, d34, d4):
+#           continue
+#         if d1 == d2 or d3 == d4:
+#           continue
+#         if d1 == d12 or d12 == d2 or d3 == d34 or d4 == d34:
+#           continue
+#         yield dict(zip('abcdefmnpqru', [a, b, c, d, e, f, m, n, p, q, r, u]))
 
 
-def match_circle_coll_eqangle_midp(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match circle O A B C, coll M B C, eqangle A B A C O B O M => midp M B C."""
-  for p, a, b, c in g.all_circles():
-    ab = g._get_line(a, b)
-    if ab is None:
-      continue
-    if ab.val is None:
-      continue
-    ac = g._get_line(a, c)
-    if ac is None:
-      continue
-    if ac.val is None:
-      continue
-    pb = g._get_line(p, b)
-    if pb is None:
-      continue
-    if pb.val is None:
-      continue
+# def match_perp_perp_npara_eqangle(
+#     g: gh.Graph,
+#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
+#     theorem: pr.Theorem,
+# ) -> Generator[dict[str, gm.Point], None, None]:
+#   """Match perp A B C D, perp E F G H, npara A B E F => eqangle A B E F C D G H."""
+#   dpairs = []
+#   for ang in g.vhalfpi.neighbors(gm.Angle):
+#     d1, d2 = ang.directions
+#     if d1 is None or d2 is None:
+#       continue
+#     dpairs.append((d1, d2))
 
-    bc = g._get_line(b, c)
-    if bc is None:
-      continue
-    bc_points = bc.neighbors(gm.Point, return_set=True)
+#   for (d1, d2), (d3, d4) in utils.comb2(dpairs):
+#     a, b = g.two_points_on_direction(d1)
+#     c, d = g.two_points_on_direction(d2)
+#     m, n = g.two_points_on_direction(d3)
+#     p, q = g.two_points_on_direction(d4)
+#     if g.check_npara([a, b, m, n]):
+#       if ({a, b}, {c, d}) == ({m, n}, {p, q}):
+#         continue
+#       if ({a, b}, {c, d}) == ({p, q}, {m, n}):
+#         continue
 
-    anga, _ = g._get_angle(ab.val, ac.val)
+#       yield dict(zip('ABCDEFGH', [a, b, c, d, m, n, p, q]))
 
-    for angp in pb.val.neighbors(gm.Angle):
-      if not g.is_equal(anga, angp):
-        continue
-
-      _, d = angp.directions
-      for l in d.neighbors(gm.Line):
-        l_points = l.neighbors(gm.Point, return_set=True)
-        m = intersect1(bc_points, l_points)
-        if m is not None:
-          yield dict(zip('ABCMO', [a, b, c, m, p]))
 
 
 def match_midp_perp_cong(
@@ -224,182 +158,44 @@ def match_midp_perp_cong(
             yield dict(zip('ABMO', [a, b, m, o]))
 
 
-def match_cyclic_eqangle_cong(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match cyclic A B C P Q R, eqangle C A C B R P R Q => cong A B P Q."""
-  for c in g.type2nodes[gm.Circle]:
-    ps = c.neighbors(gm.Point)
-    for (a, b, c), (x, y, z) in utils.comb2(list(utils.perm3(ps))):
-      if {a, b, c} == {x, y, z}:
-        continue
-      if g.check_eqangle([c, a, c, b, z, x, z, y]):
-        yield dict(zip('ABCPQR', [a, b, c, x, y, z]))
+# def match_perp_perp_ncoll_para(
+#     g: gh.Graph,
+#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
+#     theorem: pr.Theorem,
+# ) -> Generator[dict[str, gm.Point], None, None]:
+#   """Match perp A B C D, perp C D E F, ncoll A B E => para A B E F."""
+#   d2d = defaultdict(list)
+#   for ang in g.vhalfpi.neighbors(gm.Angle):
+#     d1, d2 = ang.directions
+#     if d1 is None or d2 is None:
+#       continue
+#     d2d[d1] += [d2]
+#     d2d[d2] += [d1]
+
+#   for x, ys in d2d.items():
+#     if len(ys) < 2:
+#       continue
+#     c, d = g.two_points_on_direction(x)
+#     for y1, y2 in utils.comb2(ys):
+#       a, b = g.two_points_on_direction(y1)
+#       e, f = g.two_points_on_direction(y2)
+#       if nm.check_ncoll([a.num, b.num, e.num]):
+#         yield dict(zip('ABCDEF', [a, b, c, d, e, f]))
 
 
-def match_circle_eqangle_perp(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match circle O A B C, eqangle A X A B C A C B => perp O A A X."""
-  for p, a, b, c in g.all_circles():
-    ca = g._get_line(c, a)
-    if ca is None:
-      continue
-    cb = g._get_line(c, b)
-    if cb is None:
-      continue
-    ab = g._get_line(a, b)
-    if ab is None:
-      continue
-
-    if ca.val is None:
-      continue
-    if cb.val is None:
-      continue
-    if ab.val is None:
-      continue
-
-    c_ang, _ = g._get_angle(cb.val, ca.val)
-    if c_ang is None:
-      continue
-
-    for ang in ab.val.neighbors(gm.Angle):
-      if g.is_equal(ang, c_ang):
-        _, d = ang.directions
-        for l in d.neighbors(gm.Line):
-          if a not in l.neighbors(gm.Point):
-            continue
-          x = diff_point(l, a)
-          if x is None:
-            continue
-          yield dict(zip('OABCX', [p, a, b, c, x]))
-        break
-
-
-def match_circle_perp_eqangle(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match circle O A B C, perp O A A X => eqangle A X A B C A C B."""
-  for p, a, b, c in g.all_circles():
-    pa = g._get_line(p, a)
-    if pa is None:
-      continue
-    if pa.val is None:
-      continue
-    for l in a.neighbors(gm.Line):
-      if g.check_perpl(pa, l):
-        x = diff_point(l, a)
-        if x is not None:
-          yield dict(zip('OABCX', [p, a, b, c, x]))
-
-
-def match_perp_perp_ncoll_para(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match perp A B C D, perp C D E F, ncoll A B E => para A B E F."""
-  d2d = defaultdict(list)
-  for ang in g.vhalfpi.neighbors(gm.Angle):
-    d1, d2 = ang.directions
-    if d1 is None or d2 is None:
-      continue
-    d2d[d1] += [d2]
-    d2d[d2] += [d1]
-
-  for x, ys in d2d.items():
-    if len(ys) < 2:
-      continue
-    c, d = g.two_points_on_direction(x)
-    for y1, y2 in utils.comb2(ys):
-      a, b = g.two_points_on_direction(y1)
-      e, f = g.two_points_on_direction(y2)
-      if nm.check_ncoll([a.num, b.num, e.num]):
-        yield dict(zip('ABCDEF', [a, b, c, d, e, f]))
-
-
-def match_eqangle6_ncoll_cong(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqangle6 A O A B B A B O, ncoll O A B => cong O A O B."""
-  for a in g.type2nodes[gm.Point]:
-    for b, c in utils.comb2(g.type2nodes[gm.Point]):
-      if a == b or a == c:
-        continue
-      if g.check_eqangle([b, a, b, c, c, b, c, a]):
-        if g.check_ncoll([a, b, c]):
-          yield dict(zip('OAB', [a, b, c]))
-
-
-def match_eqangle_perp_perp(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqangle A B P Q C D U V, perp P Q U V => perp A B C D."""
-  for ang in g.vhalfpi.neighbors(gm.Angle):
-    # d1 perp d2
-    d1, d2 = ang.directions
-    if d1 is None or d2 is None:
-      continue
-    for d3, d4 in utils.comb2(g.type2nodes[gm.Direction]):
-      if d1 == d3 or d2 == d4:
-        continue
-      # if d1 - d3 = d2 - d4 => d3 perp d4
-      a13, a31 = g._get_angle(d1, d3)
-      a24, a42 = g._get_angle(d2, d4)
-      if a13 is None or a31 is None or a24 is None or a42 is None:
-        continue
-      if g.is_equal(a13, a24) and g.is_equal(a31, a42):
-        a, b = g.two_points_on_direction(d1)
-        c, d = g.two_points_on_direction(d2)
-        m, n = g.two_points_on_direction(d3)
-        p, q = g.two_points_on_direction(d4)
-        yield dict(zip('ABCDPQUV', [m, n, p, q, a, b, c, d]))
-
-
-def match_eqangle_ncoll_cyclic(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqangle6 P A P B Q A Q B, ncoll P Q A B => cyclic A B P Q."""
-  for l1, l2, l3, l4 in g.all_eqangles_distinct_linepairss():
-    if len(set([l1, l2, l3, l4])) < 4:
-      continue  # they all must be distinct.
-
-    p1s = l1.neighbors(gm.Point, return_set=True)
-    p2s = l2.neighbors(gm.Point, return_set=True)
-    p3s = l3.neighbors(gm.Point, return_set=True)
-    p4s = l4.neighbors(gm.Point, return_set=True)
-
-    p = intersect1(p1s, p2s)
-    if not p:
-      continue
-    q = intersect1(p3s, p4s)
-    if not q:
-      continue
-    a = intersect1(p1s, p3s)
-    if not a:
-      continue
-    b = intersect1(p2s, p4s)
-    if not b:
-      continue
-    if len(set([a, b, p, q])) < 4:
-      continue
-
-    if not g.check_ncoll([a, b, p, q]):
-      continue
-
-    yield dict(zip('ABPQ', [a, b, p, q]))
+# def match_eqangle6_ncoll_cong(
+#     g: gh.Graph,
+#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
+#     theorem: pr.Theorem,
+# ) -> Generator[dict[str, gm.Point], None, None]:
+#   """Match eqangle6 A O A B B A B O, ncoll O A B => cong O A O B."""
+#   for a in g.type2nodes[gm.Point]:
+#     for b, c in utils.comb2(g.type2nodes[gm.Point]):
+#       if a == b or a == c:
+#         continue
+#       if g.check_eqangle([b, a, b, c, c, b, c, a]):
+#         if g.check_ncoll([a, b, c]):
+#           yield dict(zip('OAB', [a, b, c]))
 
 
 def match_eqangle_para(
@@ -425,22 +221,6 @@ def match_eqangle_para(
         e, f = g.two_points_on_direction(d3)
         yield dict(zip('ABCDPQ', [c, d, e, f, a, b]))
 
-
-def match_cyclic_eqangle(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match cyclic A B P Q => eqangle P A P B Q A Q B."""
-  record = set()
-  for a, b, c, d in g_matcher('cyclic'):
-    if (a, b, c, d) in record:
-      continue
-    record.add((a, b, c, d))
-    record.add((a, b, d, c))
-    record.add((b, a, c, d))
-    record.add((b, a, d, c))
-    yield dict(zip('ABPQ', [a, b, c, d]))
 
 
 def rotate_simtri(
@@ -725,55 +505,55 @@ def match_eqangle6_eqangle6_ncoll_cong_contri2(
     yield mapping
 
 
-def match_eqratio6_coll_ncoll_eqangle6(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqratio6 d b d c a b a c, coll d b c, ncoll a b c => eqangle6 a b a d a d a c."""
-  records = set()
-  for b, d, c in g_matcher('coll'):
-    for a in g.all_points():
-      if g.check_coll([a, b, c]):
-        continue
-      if (a, b, d, c) in records or (a, c, d, b) in records:
-        continue
-      records.add((a, b, d, c))
+# def match_eqratio6_coll_ncoll_eqangle6(
+#     g: gh.Graph,
+#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
+#     theorem: pr.Theorem,
+# ) -> Generator[dict[str, gm.Point], None, None]:
+#   """Match eqratio6 d b d c a b a c, coll d b c, ncoll a b c => eqangle6 a b a d a d a c."""
+#   records = set()
+#   for b, d, c in g_matcher('coll'):
+#     for a in g.all_points():
+#       if g.check_coll([a, b, c]):
+#         continue
+#       if (a, b, d, c) in records or (a, c, d, b) in records:
+#         continue
+#       records.add((a, b, d, c))
 
-      if g.check_eqratio([d, b, d, c, a, b, a, c]):
-        yield dict(zip('abcd', [a, b, c, d]))
-
-
-def match_eqangle6_coll_ncoll_eqratio6(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqangle6 a b a d a d a c, coll d b c, ncoll a b c => eqratio6 d b d c a b a c."""
-  records = set()
-  for b, d, c in g_matcher('coll'):
-    for a in g.all_points():
-      if g.check_coll([a, b, c]):
-        continue
-      if (a, b, d, c) in records or (a, c, d, b) in records:
-        continue
-      records.add((a, b, d, c))
-
-      if g.check_eqangle([a, b, a, d, a, d, a, c]):
-        yield dict(zip('abcd', [a, b, c, d]))
+#       if g.check_eqratio([d, b, d, c, a, b, a, c]):
+#         yield dict(zip('abcd', [a, b, c, d]))
 
 
-def match_eqangle6_ncoll_cyclic(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqangle6 P A P B Q A Q B, ncoll P Q A B => cyclic A B P Q."""
-  for a, b, a, c, x, y, x, z in g_matcher('eqangle6'):  # pylint: disable=redeclared-assigned-name,unused-variable
-    if (b, c) != (y, z) or a == x:
-      continue
-    if nm.check_ncoll([x.num for x in [a, b, c, x]]):
-      yield dict(zip('ABPQ', [b, c, a, x]))
+# def match_eqangle6_coll_ncoll_eqratio6(
+#     g: gh.Graph,
+#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
+#     theorem: pr.Theorem,
+# ) -> Generator[dict[str, gm.Point], None, None]:
+#   """Match eqangle6 a b a d a d a c, coll d b c, ncoll a b c => eqratio6 d b d c a b a c."""
+#   records = set()
+#   for b, d, c in g_matcher('coll'):
+#     for a in g.all_points():
+#       if g.check_coll([a, b, c]):
+#         continue
+#       if (a, b, d, c) in records or (a, c, d, b) in records:
+#         continue
+#       records.add((a, b, d, c))
+
+#       if g.check_eqangle([a, b, a, d, a, d, a, c]):
+#         yield dict(zip('abcd', [a, b, c, d]))
+
+
+# def match_eqangle6_ncoll_cyclic(
+#     g: gh.Graph,
+#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
+#     theorem: pr.Theorem,
+# ) -> Generator[dict[str, gm.Point], None, None]:
+#   """Match eqangle6 P A P B Q A Q B, ncoll P Q A B => cyclic A B P Q."""
+#   for a, b, a, c, x, y, x, z in g_matcher('eqangle6'):  # pylint: disable=redeclared-assigned-name,unused-variable
+#     if (b, c) != (y, z) or a == x:
+#       continue
+#     if nm.check_ncoll([x.num for x in [a, b, c, x]]):
+#       yield dict(zip('ABPQ', [b, c, a, x]))
 
 
 def match_all(
@@ -917,22 +697,17 @@ BUILT_IN_FNS = {
         match_eqratio6_eqratio6_ncoll_cong_contri
     ),  # pylint: disable=line-too-long
     'eqangle_para': match_eqangle_para,
-    'eqangle_ncoll_cyclic': match_eqangle_ncoll_cyclic,
     'eqratio6_eqangle6_ncoll_simtri*': match_eqratio6_eqangle6_ncoll_simtri,
-    'eqangle_perp_perp': match_eqangle_perp_perp,
-    'eqangle6_ncoll_cong': match_eqangle6_ncoll_cong,
-    'perp_perp_ncoll_para': match_perp_perp_ncoll_para,
-    'circle_perp_eqangle': match_circle_perp_eqangle,
-    'circle_eqangle_perp': match_circle_eqangle_perp,
-    'cyclic_eqangle_cong': match_cyclic_eqangle_cong,
-    'midp_perp_cong': match_midp_perp_cong,
-    'perp_perp_npara_eqangle': match_perp_perp_npara_eqangle,
-    'cyclic_eqangle': match_cyclic_eqangle,
-    'eqangle_eqangle_eqangle': match_eqangle_eqangle_eqangle,
-    'eqratio_eqratio_eqratio': match_eqratio_eqratio_eqratio,
-    'eqratio6_coll_ncoll_eqangle6': match_eqratio6_coll_ncoll_eqangle6,
-    'eqangle6_coll_ncoll_eqratio6': match_eqangle6_coll_ncoll_eqratio6,
-    'eqangle6_ncoll_cyclic': match_eqangle6_ncoll_cyclic,
+    # 'eqangle_perp_perp': match_eqangle_perp_perp,
+    # 'eqangle6_ncoll_cong': match_eqangle6_ncoll_cong,
+    # 'perp_perp_ncoll_para': match_perp_perp_ncoll_para,
+    # 'midp_perp_cong': match_midp_perp_cong,
+    # 'perp_perp_npara_eqangle': match_perp_perp_npara_eqangle,
+    # 'eqangle_eqangle_eqangle': match_eqangle_eqangle_eqangle,
+    # 'eqratio_eqratio_eqratio': match_eqratio_eqratio_eqratio,
+    # 'eqratio6_coll_ncoll_eqangle6': match_eqratio6_coll_ncoll_eqangle6,
+    # 'eqangle6_coll_ncoll_eqratio6': match_eqangle6_coll_ncoll_eqratio6,
+    # 'eqangle6_ncoll_cyclic': match_eqangle6_ncoll_cyclic,
 }
 
 
@@ -1091,6 +866,8 @@ def bfs_one_level(
       if hash_conclusion in g.cache:
         continue
 
+      print(name)
+
       add = g.add_piece(name, args, deps=deps)
       added += add
 
@@ -1103,8 +880,6 @@ def bfs_one_level(
     for a in controller.goal.args:
       if a in g._name2node:
         a = g._name2node[a]
-      elif '/' in a:
-        a = create_consts_str(g, a)
       elif a.isdigit():
         a = int(a)
       args.append(a)
@@ -1112,45 +887,7 @@ def bfs_one_level(
     if g.check(controller.goal.name, args):
       return added, {}, {}, branching
 
-  # Run AR, but do NOT apply to the proof state (yet).
-  for dep in added:
-    g.add_algebra(dep, level)
-  derives, eq4s = g.derive_algebra(level, verbose=False)
-
-  branching += sum([len(x) for x in derives.values()])
-  branching += sum([len(x) for x in eq4s.values()])
-
+  derives = []
+  eq4s = []
   return added, derives, eq4s, branching
 
-
-def create_consts_str(g: gh.Graph, s: str) -> gm.Angle | gm.Ratio:
-  if 'pi/' in s:
-    n, d = s.split('pi/')
-    n, d = int(n), int(d)
-    p0, _ = g.get_or_create_const_ang(n, d)
-  else:
-    n, d = s.split('/')
-    n, d = int(n), int(d)
-    p0, _ = g.get_or_create_const_rat(n, d)
-  return p0
-
-
-def do_algebra(
-    g: gh.Graph, added: list[pr.Dependency], verbose: bool = False
-) -> None:
-  for add in added:
-    g.add_algebra(add, None)
-  derives, eq4s = g.derive_algebra(level=None, verbose=verbose)
-  apply_derivations(g, derives)
-  apply_derivations(g, eq4s)
-
-
-def apply_derivations(
-    g: gh.Graph, derives: dict[str, list[tuple[gm.Point, ...]]]
-) -> list[pr.Dependency]:
-  applied = []
-  all_derives = list(derives.items())
-  for name, args in all_derives:
-    for arg in args:
-      applied += g.do_algebra(name, arg)
-  return applied

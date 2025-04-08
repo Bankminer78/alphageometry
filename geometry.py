@@ -230,61 +230,7 @@ class Node:
 
     return bfs_backtrack(self, others, parent)
 
-  def why_equal_groups(
-      self, groups: list[list[Node]], level: int
-  ) -> tuple[list[Any], list[Node]]:
-    """BFS for why self is equal to at least one member of each group."""
-    others = [None for _ in groups]
-    found = 0
 
-    parent = {}
-    queue = [self]
-    i = 0
-
-    while i < len(queue):
-      current = queue[i]
-
-      for j, grp in enumerate(groups):
-        if others[j] is None and current in grp:
-          others[j] = current
-          found += 1
-
-      if found == len(others):
-        break
-
-      i += 1
-
-      for neighbor in current.merge_graph:
-        if (
-            level is not None
-            and current.merge_graph[neighbor].level is not None
-            and current.merge_graph[neighbor].level >= level
-        ):
-          continue
-        if neighbor not in parent:
-          queue.append(neighbor)
-          parent[neighbor] = current
-
-    return bfs_backtrack(self, others, parent), others
-
-  def why_val(self, level: int) -> list[Any]:
-    return self._val.why_equal([self.val], level)
-
-  def why_connect(self, node: Node, level: int = None) -> list[Any]:
-    rep = self.rep()
-    equivs = list(rep.edge_graph[node].keys())
-    if not equivs:
-      return None
-    equiv = equivs[0]
-    dep = rep.edge_graph[node][equiv]
-    return [dep] + self.why_equal(equiv, level)
-
-
-def why_connect(*pairs: list[tuple[Node, Node]]) -> list[Any]:
-  result = []
-  for node1, node2 in pairs:
-    result += node1.why_connect(node2)
-  return result
 
 
 def is_equiv(x: Node, y: Node, level: int = None) -> bool:
@@ -333,35 +279,6 @@ class Line(Node):
   def new_val(self) -> Direction:
     return Direction()
 
-  def why_coll(self, points: list[Point], level: int = None) -> list[Any]:
-    """Why points are connected to self."""
-    level = level or float('inf')
-
-    groups = []
-    for p in points:
-      group = [
-          l
-          for l, d in self.edge_graph[p].items()
-          if d is None or d.level < level
-      ]
-      if not group:
-        return None
-      groups.append(group)
-
-    min_deps = None
-    for line in groups[0]:
-      deps, others = line.why_equal_groups(groups[1:], level)
-      if deps is None:
-        continue
-      for p, o in zip(points, [line] + others):
-        deps.append(self.edge_graph[p][o])
-      if min_deps is None or len(deps) < len(min_deps):
-        min_deps = deps
-
-    if min_deps is None:
-      return None
-    return [d for d in min_deps if d is not None]
-
 
 class Segment(Node):
 
@@ -372,35 +289,6 @@ class Segment(Node):
 class Circle(Node):
   """Node of type Circle."""
 
-  def why_cyclic(self, points: list[Point], level: int = None) -> list[Any]:
-    """Why points are connected to self."""
-    level = level or float('inf')
-
-    groups = []
-    for p in points:
-      group = [
-          c
-          for c, d in self.edge_graph[p].items()
-          if d is None or d.level < level
-      ]
-      if not group:
-        return None
-      groups.append(group)
-
-    min_deps = None
-    for circle in groups[0]:
-      deps, others = circle.why_equal_groups(groups[1:], level)
-      if deps is None:
-        continue
-      for p, o in zip(points, [circle] + others):
-        deps.append(self.edge_graph[p][o])
-
-      if min_deps is None or len(deps) < len(min_deps):
-        min_deps = deps
-
-    if min_deps is None:
-      return None
-    return [d for d in min_deps if d is not None]
 
 
 def why_equal(x: Node, y: Node, level: int = None) -> list[Any]:
@@ -443,42 +331,6 @@ def line_of_and_why(
 
   return None, None
 
-
-def get_circles_thru_all(*points: list[Point]) -> list[Circle]:
-  circle2count = defaultdict(lambda: 0)
-  points = set(points)
-  for p in points:
-    for c in p.neighbors(Circle):
-      circle2count[c] += 1
-  return [c for c, count in circle2count.items() if count == len(points)]
-
-
-def circle_of_and_why(
-    points: list[Point], level: int = None
-) -> tuple[Circle, list[Any]]:
-  """Why points are concyclic."""
-  for c0 in get_circles_thru_all(*points):
-    for c in c0.equivs():
-      if all([p in c.edge_graph for p in points]):
-        cycls = list(set(points))
-        why = c.why_cyclic(cycls, level)
-        if why is not None:
-          return c, why
-
-  return None, None
-
-
-def name_map(struct: Any) -> Any:
-  if isinstance(struct, list):
-    return [name_map(x) for x in struct]
-  elif isinstance(struct, tuple):
-    return tuple([name_map(x) for x in struct])
-  elif isinstance(struct, set):
-    return set([name_map(x) for x in struct])
-  elif isinstance(struct, dict):
-    return {name_map(x): name_map(y) for x, y in struct.items()}
-  else:
-    return getattr(struct, 'name', '')
 
 
 class Angle(Node):

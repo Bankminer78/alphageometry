@@ -17,18 +17,9 @@
 
 from __future__ import annotations
 
-from collections import defaultdict  # pylint: disable=g-importing-member
 from typing import Any
 
 import geometry as gm
-import pretty as pt
-
-
-# pylint: disable=protected-access
-# pylint: disable=unused-variable
-# pylint: disable=unused-argument
-# pylint: disable=unused-assignment
-
 
 def reshape(l: list[Any], n: int = 1) -> list[list[Any]]:
   assert len(l) % n == 0
@@ -36,14 +27,6 @@ def reshape(l: list[Any], n: int = 1) -> list[list[Any]]:
   for i, x in enumerate(l):
     columns[i % n].append(x)
   return zip(*columns)
-
-
-def isint(x: str) -> bool:
-  try:
-    int(x)
-    return True
-  except:  # pylint: disable=bare-except
-    return False
 
 
 class Construction:
@@ -58,9 +41,6 @@ class Construction:
     self.name = name
     self.args = args
 
-  def translate(self, mapping: dict[str, str]) -> Construction:
-    args = [a if isint(a) else mapping[a] for a in self.args]
-    return Construction(self.name, args)
 
   def txt(self) -> str:
     return ' '.join([self.name] + list(self.args))
@@ -94,20 +74,7 @@ class Clause:
 
     self.constructions = constructions
 
-  def translate(self, mapping: dict[str, str]) -> Clause:
-    points0 = []
-    for p in self.points:
-      pcount = len(mapping) + 1
-      name = chr(96 + pcount)
-      if name > 'z':  # pcount = 26 -> name = 'z'
-        name = chr(97 + (pcount - 1) % 26) + str((pcount - 1) // 26)
-
-      p0 = mapping.get(p, name)
-      mapping[p] = p0
-      points0.append(p0)
-    return Clause(points0, [c.translate(mapping) for c in self.constructions])
-
-  def add(self, name: str, args: list[str]) -> None:
+  def add(self, name: str, args: list[str]) -> None: 
     self.constructions.append(Construction(name, args))
 
   def txt(self) -> str:
@@ -116,26 +83,6 @@ class Clause:
         + ' = '
         + ', '.join(c.txt() for c in self.constructions)
     )
-
-
-def _gcd(x: int, y: int) -> int:
-  while y:
-    x, y = y, x % y
-  return x
-
-
-def simplify(n: int, d: int) -> tuple[int, int]:
-  g = _gcd(n, d)
-  return (n // g, d // g)
-
-
-def compare_fn(dep: Dependency) -> tuple[Dependency, str]:
-  return (dep, pt.pretty(dep))
-
-
-def sort_deps(deps: list[Dependency]) -> list[Dependency]:
-  return sorted(deps, key=compare_fn)
-
 
 class Problem:
   """Describe one problem to solve."""
@@ -187,26 +134,6 @@ class Problem:
     self.clauses = clauses
     self.goal = goal
 
-  def copy(self) -> Problem:
-    return Problem(self.url, list(self.clauses), self.goal)
-
-  def translate(self) -> Problem:  # to single-char point names
-    """Translate point names into alphabetical."""
-    mapping = {}
-    clauses = []
-
-    for clause in self.clauses:
-      clauses.append(clause.translate(mapping))
-
-    if self.goal:
-      goal = self.goal.translate(mapping)
-    else:
-      goal = self.goal
-
-    p = Problem(self.url, clauses, goal)
-    p.mapping = mapping
-    return p
-
   def txt(self) -> str:
     return (
         '; '.join([c.txt() for c in self.clauses]) + ' ? ' + self.goal.txt()
@@ -214,74 +141,7 @@ class Problem:
         else ''
     )
 
-  def setup_str_from_problem(self, definitions: list[Definition]) -> str:
-    """Construct the <theorem_premises> string from Problem object."""
-    ref = 0
-
-    string = []
-    for clause in self.clauses:
-      group = {}
-      p2deps = defaultdict(list)
-      for c in clause.constructions:
-        cdef = definitions[c.name]
-
-        if len(c.args) != len(cdef.construction.args):
-          assert len(c.args) + len(clause.points) == len(cdef.construction.args)
-          c.args = clause.points + c.args
-
-        mapping = dict(zip(cdef.construction.args, c.args))
-        for points, bs in cdef.basics:
-          points = tuple([mapping[x] for x in points])
-          for p in points:
-            group[p] = points
-
-          for b in bs:
-            args = [mapping[a] for a in b.args]
-            name = b.name
-            if b.name in ['s_angle', 'aconst']:
-              x, y, z, v = args
-              name = 'aconst'
-              v = int(v)
-
-              if v < 0:
-                v = -v
-                x, z = z, x
-
-              m, n = simplify(int(v), 180)
-              args = [y, z, y, x, f'{m}pi/{n}']
-
-            p2deps[points].append(hashed_txt(name, args))
-
-      for k, v in p2deps.items():
-        p2deps[k] = sort_deps(v)
-
-      points = clause.points
-      while points:
-        p = points[0]
-        gr = group[p]
-        points = [x for x in points if x not in gr]
-
-        deps_str = []
-        for dep in p2deps[gr]:
-          ref_str = '{:02}'.format(ref)
-          dep_str = pt.pretty(dep)
-
-          if dep[0] == 'aconst':
-            m, n = map(int, dep[-1].split('pi/'))
-            mn = f'{m}. pi / {n}.'
-            dep_str = ' '.join(dep_str.split()[:-1] + [mn])
-
-          deps_str.append(dep_str + ' ' + ref_str)
-          ref += 1
-
-        string.append(' '.join(gr) + ' : ' + ' '.join(deps_str))
-
-    string = '{S} ' + ' ; '.join([s.strip() for s in string])
-    goal = self.goal
-    string += ' ? ' + pt.pretty([goal.name] + goal.args)
-    return string
-
-
+  
 def parse_rely(s: str) -> dict[str, str]:
   result = {}
   if not s:
@@ -607,41 +467,7 @@ class EmptyDependency:
     other = EmptyDependency(self.level, self.rule_name)
     other.why = list(self.why)
     return other
-
-  def extend(
-      self,
-      g: Any,
-      name0: str,
-      args0: list[gm.Point],
-      name: str,
-      args: list[gm.Point],
-  ) -> EmptyDependency:
-    """Extend the dependency list by (name, args)."""
-    dep0 = self.populate(name0, args0)
-    deps = EmptyDependency(level=self.level, rule_name=None)
-    dep = Dependency(name, args, None, deps.level)
-    deps.why = [dep0, dep.why_me_or_cache(g, None)]
-    return deps
-
-  def extend_many(
-      self,
-      g: Any,
-      name0: str,
-      args0: list[gm.Point],
-      name_args: list[tuple[str, list[gm.Point]]],
-  ) -> EmptyDependency:
-    """Extend the dependency list by many name_args."""
-    if not name_args:
-      return self
-    dep0 = self.populate(name0, args0)
-    deps = EmptyDependency(level=self.level, rule_name=None)
-    deps.why = [dep0]
-    for name, args in name_args:
-      dep = Dependency(name, args, None, deps.level)
-      deps.why += [dep.why_me_or_cache(g, None)]
-    return deps
-
-
+  
 def maybe_make_equal_pairs(
     a: gm.Point,
     b: gm.Point,
@@ -687,25 +513,6 @@ class Dependency(Construction):
     self._stat = None
     self.trace = None
 
-  def _find(self, dep_hashed: tuple[str, ...]) -> Dependency:
-    for w in self.why:
-      f = w._find(dep_hashed)
-      if f:
-        return f
-      if w.hashed() == dep_hashed:
-        return w
-
-  def remove_loop(self) -> Dependency:
-    f = self._find(self.hashed())
-    if f:
-      return f
-    return self
-
-  def copy(self) -> Dependency:
-    dep = Dependency(self.name, self.args, self.rule_name, self.level)
-    dep.trace = self.trace
-    dep.why = list(self.why)
-    return dep
 
   def why_me_or_cache(self, g: Any, level: int) -> Dependency:
     if self.hashed() in g.cache:
@@ -713,22 +520,11 @@ class Dependency(Construction):
     self.why_me(g, level)
     return self
 
-  def populate(self, name: str, args: list[gm.Point]) -> Dependency:
-    assert self.rule_name == CONSTRUCTION_RULE, self.rule_name
-    dep = Dependency(self.name, self.args, self.rule_name, self.level)
-    dep.why = list(self.why)
-    return dep
-
   def why_me(self, g: Any, level: int) -> None:
     """Figure out the dependencies predicates of self."""
     name, args = self.name, self.args
 
     hashed_me = hashed(name, args)
-    if hashed_me in g.cache:
-      dep = g.cache[hashed_me]
-      self.why = dep.why
-      self.rule_name = dep.rule_name
-      return
 
     if self.name == 'para':
       a, b, c, d = self.args
@@ -764,38 +560,12 @@ class Dependency(Construction):
       dep = Dependency('coll', [m, a, b], None, None).why_me_or_cache(g, None)
       self.why = [dep] + g.why_equal(ma, mb, level)
 
-    elif self.name == 'perp':
-      a, b, c, d = self.args
-      ab = g._get_line(a, b)
-      cd = g._get_line(c, d)
-      for (x, y), xy in zip([(a, b), (c, d)], [ab, cd]):
-        x_, y_ = xy.points
-        if {x, y} == {x_, y_}:
-          continue
-        d = Dependency('collx', [x, y, x_, y_], None, level)
-        self.why += [d.why_me_or_cache(g, level)]
-
-      _, why = why_eqangle(ab._val, cd._val, cd._val, ab._val, level)
-      a, b = ab.points
-      c, d = cd.points
-
-      if hashed(self.name, [a, b, c, d]) != self.hashed():
-        d = Dependency(self.name, [a, b, c, d], None, level)
-        d.why = why
-        why = [d]
-
-      self.why += why
-
     elif self.name == 'cong':
       a, b, c, d = self.args
       ab = g._get_segment(a, b)
       cd = g._get_segment(c, d)
 
       self.why = g.why_equal(ab, cd, level)
-
-    elif self.name == 'coll':
-      _, why = gm.line_of_and_why(self.args, level)
-      self.why = why
 
     elif self.name == 'collx':
       if g.check_coll(self.args):
@@ -810,17 +580,6 @@ class Dependency(Construction):
       else:
         self.name = 'para'
         self.why_me(g, level)
-
-    elif self.name == 'cyclic':
-      _, why = gm.circle_of_and_why(self.args, level)
-      self.why = why
-
-    elif self.name == 'circle':
-      o, a, b, c = self.args
-      oa = g._get_segment(o, a)
-      ob = g._get_segment(o, b)
-      oc = g._get_segment(o, c)
-      self.why = g.why_equal(oa, ob, level) + g.why_equal(oa, oc, level)
 
     elif self.name in ['eqangle', 'eqangle6']:
       a, b, c, d, m, n, p, q = self.args
@@ -866,15 +625,6 @@ class Dependency(Construction):
       whyeqangle = None
       if ab._val and cd._val and mn._val and pq._val:
         whyeqangle = why_eqangle(ab._val, cd._val, mn._val, pq._val, level)
-
-      if whyeqangle:
-        (dab, dcd, dmn, dpq), whyeqangle = whyeqangle
-        if diff:
-          d = Dependency('eqangle', [a, b, c, d, m, n, p, q], None, level)
-          d.why = whyeqangle
-          whyeqangle = [d]
-        self.why += whyeqangle
-
       else:
         if (ab == cd and mn == pq) or (ab == mn and cd == pq):
           self.why += []
@@ -972,82 +722,6 @@ class Dependency(Construction):
     elif self.name in ['diff', 'npara', 'nperp', 'ncoll', 'sameside']:
       self.why = []
 
-    elif self.name == 'simtri':
-      a, b, c, x, y, z = self.args
-      dep1 = Dependency('eqangle', [a, b, a, c, x, y, x, z], '', level)
-      dep1.why_me(g, level)
-      dep2 = Dependency('eqangle', [b, a, b, c, y, x, y, z], '', level)
-      dep2.why_me(g, level)
-      self.rule_name = 'r34'
-      self.why = [dep1, dep2]
-
-    elif self.name == 'contri':
-      a, b, c, x, y, z = self.args
-      dep1 = Dependency('cong', [a, b, x, y], '', level)
-      dep1.why_me(g, level)
-      dep2 = Dependency('cong', [b, c, y, z], '', level)
-      dep2.why_me(g, level)
-      dep3 = Dependency('cong', [c, a, z, x], '', level)
-      dep3.why_me(g, level)
-      self.rule_name = 'r32'
-      self.why = [dep1, dep2, dep3]
-
-    elif self.name == 'ind':
-      pass
-
-    elif self.name == 'aconst':
-      a, b, c, d, ang0 = self.args
-
-      measure = ang0._val
-
-      for ang in measure.neighbors(gm.Angle):
-        if ang == ang0:
-          continue
-        d1, d2 = ang._d
-        l1, l2 = d1._obj, d2._obj
-        (a1, b1), (c1, d1) = l1.points, l2.points
-
-        if not g.check_para_or_coll([a, b, a1, b1]) or not g.check_para_or_coll(
-            [c, d, c1, d1]
-        ):
-          continue
-
-        self.why = []
-        for args in [(a, b, a1, b1), (c, d, c1, d1)]:
-          if g.check_coll(args):
-            if len(set(args)) > 2:
-              dep = Dependency('coll', args, None, None)
-              self.why.append(dep.why_me_or_cache(g, level))
-          else:
-            dep = Dependency('para', args, None, None)
-            self.why.append(dep.why_me_or_cache(g, level))
-
-        self.why += gm.why_equal(ang, ang0)
-        break
-
-    elif self.name == 'rconst':
-      a, b, c, d, rat0 = self.args
-
-      val = rat0._val
-
-      for rat in val.neighbors(gm.Ratio):
-        if rat == rat0:
-          continue
-        l1, l2 = rat._l
-        s1, s2 = l1._obj, l2._obj
-        (a1, b1), (c1, d1) = list(s1.points), list(s2.points)
-
-        if not g.check_cong([a, b, a1, b1]) or not g.check_cong([c, d, c1, d1]):
-          continue
-
-        self.why = []
-        for args in [(a, b, a1, b1), (c, d, c1, d1)]:
-          if len(set(args)) > 2:
-            dep = Dependency('cong', args, None, None)
-            self.why.append(dep.why_me_or_cache(g, level))
-
-        self.why += gm.why_equal(rat, rat0)
-        break
 
     else:
       raise ValueError('Not recognize', self.name)
