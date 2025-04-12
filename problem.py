@@ -22,6 +22,7 @@ from typing import Any
 import geometry as gm
 
 def reshape(l: list[Any], n: int = 1) -> list[list[Any]]:
+  print('reshape', len(l), n)
   assert len(l) % n == 0
   columns = [[] for i in range(n)]
   for i, x in enumerate(l):
@@ -166,6 +167,8 @@ class Definition:
   @classmethod
   def from_string(cls, string: str, to_dict: bool = False) -> Definition:
     lines = string.split('\n')
+    print('Definition Second last line!', lines[-2])
+    print('Definition Last line!', lines[-1])
     data = [cls.from_txt('\n'.join(group)) for group in reshape(lines, 6)]
     if to_dict:
       return cls.to_dict(data)
@@ -468,35 +471,35 @@ class EmptyDependency:
     other.why = list(self.why)
     return other
   
-def maybe_make_equal_pairs(
-    a: gm.Point,
-    b: gm.Point,
-    c: gm.Point,
-    d: gm.Point,
-    m: gm.Point,
-    n: gm.Point,
-    p: gm.Point,
-    q: gm.Point,
-    ab: gm.Line,
-    mn: gm.Line,
-    g: Any,
-    level: int,
-) -> list[Dependency]:
-  """Make a-b:c-d==m-n:p-q in case a-b==m-n or c-d==p-q."""
-  if ab != mn:
-    return
-  why = []
-  eqname = 'para' if isinstance(ab, gm.Line) else 'cong'
-  colls = [a, b, m, n]
-  if len(set(colls)) > 2 and eqname == 'para':
-    dep = Dependency('collx', colls, None, level)
-    dep.why_me(g, level)
-    why += [dep]
+# def maybe_make_equal_pairs(
+#     a: gm.Point,
+#     b: gm.Point,
+#     c: gm.Point,
+#     d: gm.Point,
+#     m: gm.Point,
+#     n: gm.Point,
+#     p: gm.Point,
+#     q: gm.Point,
+#     ab: gm.Line,
+#     mn: gm.Line,
+#     g: Any,
+#     level: int,
+# ) -> list[Dependency]:
+#   """Make a-b:c-d==m-n:p-q in case a-b==m-n or c-d==p-q."""
+#   if ab != mn:
+#     return
+#   why = []
+#   eqname = 'para' if isinstance(ab, gm.Line) else 'cong'
+#   colls = [a, b, m, n]
+#   if len(set(colls)) > 2 and eqname == 'para':
+#     dep = Dependency('collx', colls, None, level)
+#     dep.why_me(g, level)
+#     why += [dep]
 
-  dep = Dependency(eqname, [c, d, p, q], None, level)
-  dep.why_me(g, level)
-  why += [dep]
-  return why
+#   dep = Dependency(eqname, [c, d, p, q], None, level)
+#   dep.why_me(g, level)
+#   why += [dep]
+#   return why
 
 
 class Dependency(Construction):

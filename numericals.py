@@ -126,6 +126,7 @@ class Line:
 
 
   def intersect(self, obj: Union[Line, Circle]) -> tuple[Point, ...]:
+    print('INTERSECT CALLED : isinstance(obj, Line)', isinstance(obj, Line))
     if isinstance(obj, Line):
       return line_line_intersection(self, obj)
 
@@ -144,6 +145,15 @@ class InvalidLineIntersectError(Exception):
 def _perpendicular_bisector(p1: Point, p2: Point) -> Line:
   midpoint = (p1 + p2) * 0.5
   return Line(midpoint, midpoint + Point(p2.y - p1.y, p1.x - p2.x))
+
+
+def same_sign(
+    a: Point, b: Point, c: Point, d: Point, e: Point, f: Point
+) -> bool:
+  a, b, c, d, e, f = map(lambda p: p.sym, [a, b, c, d, e, f])
+  ab, cb = a - b, c - b
+  de, fe = d - e, f - e
+  return (ab.x * cb.y - ab.y * cb.x) * (de.x * fe.y - de.y * fe.x) > 0
 
 
 class Circle:
@@ -221,7 +231,6 @@ def check_too_far(
     if p.distance(avg) > maxdist * tol:
       return True
   return False
-
 
 
 
@@ -336,7 +345,6 @@ def random_rfss(*points: list[Point]) -> list[Point]:
 
   return points
 
-
 def reduce(
     objs: list[Union[Point, Line, Circle]],
     existing_points: list[Point],
@@ -345,22 +353,14 @@ def reduce(
   if all(isinstance(o, Point) for o in objs):
     return objs
 
-  # elif len(objs) == 1:
-  #   return objs[0].sample_within(existing_points)
-
   elif len(objs) == 2:
     a, b = objs
+
+    print('IM GONNA INTERSECT')
     result = a.intersect(b)
+    print(f'Intersecting {a} and {b} -> {result}')
     if isinstance(result, Point):
       return [result]
-    a, b = result
-    a_close = any([a.close(x) for x in existing_points])
-    if a_close:
-      return [b]
-    b_close = any([b.close(x) for x in existing_points])
-    if b_close:
-      return [a]
-    return [np.random.choice([a, b])]
 
   else:
     raise ValueError(f'Cannot reduce {objs}')
@@ -368,7 +368,7 @@ def reduce(
 
 def sketch(
     name: str, args: list[Union[Point, gm.Point]]
-) -> list[Union[Point, Line, Circle, HalfLine, HoleCircle]]:
+) -> list[Union[Point, Line, Circle]]:
   print(f'Sketching {name} with args {args}')
   fun = globals()['sketch_' + name]
   args = [p.num if isinstance(p, gm.Point) else p for p in args]
@@ -381,6 +381,7 @@ def sketch(
 
 
 def sketch_triangle(args: tuple[gm.Point, ...]) -> tuple[Point, ...]:
+  print('WEE! I AM A TRIANGLE!')
   a = Point(0.0, 0.0)
   b = Point(1.0, 0.0)
   ac = unif(0.5, 2.0)
@@ -396,3 +397,6 @@ def sketch_midp(args: tuple[gm.Point, ...]) -> Point:
 def sketch_pline(args: tuple[gm.Point, ...]) -> Line:
   a, b, c = args
   return a.parallel_line(Line(b, c))
+
+
+

@@ -28,19 +28,6 @@ import graph as gh
 import pretty as pt
 import problem as pr
 
-
-_GIN_SEARCH_PATHS = flags.DEFINE_list(
-    'gin_search_paths',
-    ['third_party/py/meliad/transformer/configs'],
-    'List of paths where the Gin config files are located.',
-)
-_GIN_FILE = flags.DEFINE_multi_string(
-    'gin_file', ['base_htrans.gin'], 'List of Gin config files.'
-)
-_GIN_PARAM = flags.DEFINE_multi_string(
-    'gin_param', None, 'Newline separated list of Gin parameter bindings.'
-)
-
 _PROBLEMS_FILE = flags.DEFINE_string(
     'problems_file',
     'imo_ag_30.txt',
@@ -61,71 +48,12 @@ _DEFS_FILE = flags.DEFINE_string(
 _RULES_FILE = flags.DEFINE_string(
     'rules_file', 'rules.txt', 'list of deduction rules used by DD.'
 )
-_CKPT_PATH = flags.DEFINE_string('ckpt_path', '', 'checkpoint of the LM model.')
-_VOCAB_PATH = flags.DEFINE_string(
-    'vocab_path', '', 'path to the LM vocab file.'
-)
 _OUT_FILE = flags.DEFINE_string(
     'out_file', '', 'path to the solution output file.'
-)  # pylint: disable=line-too-long
-_BEAM_SIZE = flags.DEFINE_integer(
-    'beam_size', 1, 'beam size of the proof search.'
-)  # pylint: disable=line-too-long
-_SEARCH_DEPTH = flags.DEFINE_integer(
-    'search_depth', 1, 'search depth of the proof search.'
 )  # pylint: disable=line-too-long
 
 DEFINITIONS = None  # contains definitions of construction actions
 RULES = None  # contains rules of deductions
-
-
-def natural_language_statement(logical_statement: pr.Dependency) -> str:
-  """Convert logical_statement to natural language.
-
-  Args:
-    logical_statement: pr.Dependency with .name and .args
-
-  Returns:
-    a string of (pseudo) natural language of the predicate for human reader.
-  """
-  names = [a.name.upper() for a in logical_statement.args]
-  names = [(n[0] + '_' + n[1:]) if len(n) > 1 else n for n in names]
-  return pt.pretty_nl(logical_statement.name, names)
-
-
-def proof_step_string(
-    proof_step: pr.Dependency, refs: dict[tuple[str, ...], int], last_step: bool
-) -> str:
-  """Translate proof to natural language.
-
-  Args:
-    proof_step: pr.Dependency with .name and .args
-    refs: dict(hash: int) to keep track of derived predicates
-    last_step: boolean to keep track whether this is the last step.
-
-  Returns:
-    a string of (pseudo) natural language of the proof step for human reader.
-  """
-  premises, [conclusion] = proof_step
-
-  premises_nl = ' & '.join(
-      [
-          natural_language_statement(p) + ' [{:02}]'.format(refs[p.hashed()])
-          for p in premises
-      ]
-  )
-
-  if not premises:
-    premises_nl = 'similarly'
-
-  refs[conclusion.hashed()] = len(refs)
-
-  conclusion_nl = natural_language_statement(conclusion)
-  if not last_step:
-    conclusion_nl += ' [{:02}]'.format(refs[conclusion.hashed()])
-
-  return f'{premises_nl} \u21d2 {conclusion_nl}'
-
 
 
 def run_ddar(g: gh.Graph, p: pr.Problem, out_file: str) -> bool:
@@ -150,262 +78,6 @@ def run_ddar(g: gh.Graph, p: pr.Problem, out_file: str) -> bool:
   print('==========================SOLVED==========================')
 
   return True
-
-
-def translate_constrained_to_constructive(
-    point: str, name: str, args: list[str]
-) -> tuple[str, list[str]]:
-  """Translate a predicate from constraint-based to construction-based.
-
-  Args:
-    point: str: name of the new point
-    name: str: name of the predicate, e.g., perp, para, etc.
-    args: list[str]: list of predicate args.
-
-  Returns:
-    (name, args): translated to constructive predicate.
-  """
-  if name in ['T', 'perp']:
-    a, b, c, d = args
-    if point in [c, d]:
-      a, b, c, d = c, d, a, b
-    if point == b:
-      a, b = b, a
-    if point == d:
-      c, d = d, c
-    if a == c and a == point:
-      return 'on_dia', [a, b, d]
-    return 'on_tline', [a, b, c, d]
-
-  elif name in ['P', 'para']:
-    a, b, c, d = args
-    if point in [c, d]:
-      a, b, c, d = c, d, a, b
-    if point == b:
-      a, b = b, a
-    return 'on_pline', [a, b, c, d]
-
-  elif name in ['D', 'cong']:
-    a, b, c, d = args
-    if point in [c, d]:
-      a, b, c, d = c, d, a, b
-    if point == b:
-      a, b = b, a
-    if point == d:
-      c, d = d, c
-    if a == c and a == point:
-      return 'on_bline', [a, b, d]
-    if b in [c, d]:
-      if b == d:
-        c, d = d, c  # pylint: disable=unused-variable
-      return 'on_circle', [a, b, d]
-    return 'eqdistance', [a, b, c, d]
-
-  elif name in ['C', 'coll']:
-    a, b, c = args
-    if point == b:
-      a, b = b, a
-    if point == c:
-      a, b, c = c, a, b
-    return 'on_line', [a, b, c]
-
-  elif name in ['^', 'eqangle']:
-    a, b, c, d, e, f = args
-
-    if point in [d, e, f]:
-      a, b, c, d, e, f = d, e, f, a, b, c
-
-    x, b, y, c, d = b, c, e, d, f
-    if point == b:
-      a, b, c, d = b, a, d, c
-
-    if point == d and x == y:  # x p x b = x c x p
-      return 'angle_bisector', [point, b, x, c]
-
-    if point == x:
-      return 'eqangle3', [x, a, b, y, c, d]
-
-    return 'on_aline', [a, x, b, c, y, d]
-
-  elif name in ['cyclic', 'O']:
-    a, b, c = [x for x in args if x != point]
-    return 'on_circum', [point, a, b, c]
-
-  return name, args
-
-
-def check_valid_args(name: str, args: list[str]) -> bool:
-  """Check whether a predicate is grammarically correct.
-
-  Args:
-    name: str: name of the predicate
-    args: list[str]: args of the predicate
-
-  Returns:
-    bool: whether the predicate arg count is valid.
-  """
-  if name == 'perp':
-    if len(args) != 4:
-      return False
-    a, b, c, d = args
-    if len({a, b}) < 2:
-      return False
-    if len({c, d}) < 2:
-      return False
-  elif name == 'para':
-    if len(args) != 4:
-      return False
-    a, b, c, d = args
-    if len({a, b, c, d}) < 4:
-      return False
-  elif name == 'cong':
-    if len(args) != 4:
-      return False
-    a, b, c, d = args
-    if len({a, b}) < 2:
-      return False
-    if len({c, d}) < 2:
-      return False
-  elif name == 'coll':
-    if len(args) != 3:
-      return False
-    a, b, c = args
-    if len({a, b, c}) < 3:
-      return False
-  elif name == 'cyclic':
-    if len(args) != 4:
-      return False
-    a, b, c, d = args
-    if len({a, b, c, d}) < 4:
-      return False
-  elif name == 'eqangle':
-    if len(args) != 8:
-      return False
-    a, b, c, d, e, f, g, h = args
-    if len({a, b, c, d}) < 3:
-      return False
-    if len({e, f, g, h}) < 3:
-      return False
-  return True
-
-
-def try_translate_constrained_to_construct(string: str, g: gh.Graph) -> str:
-  """Whether a string of aux construction can be constructed.
-
-  Args:
-    string: str: the string describing aux construction.
-    g: gh.Graph: the current proof state.
-
-  Returns:
-    str: whether this construction is valid. If not, starts with "ERROR:".
-  """
-  if string[-1] != ';':
-    return 'ERROR: must end with ;'
-
-  head, prem_str = string.split(' : ')
-  point = head.strip()
-
-  if len(point) != 1 or point == ' ':
-    return f'ERROR: invalid point name {point}'
-
-  existing_points = [p.name for p in g.all_points()]
-  if point in existing_points:
-    return f'ERROR: point {point} already exists.'
-
-  prem_toks = prem_str.split()[:-1]  # remove the EOS ' ;'
-  prems = [[]]
-
-  for i, tok in enumerate(prem_toks):
-    if tok.isdigit():
-      if i < len(prem_toks) - 1:
-        prems.append([])
-    else:
-      prems[-1].append(tok)
-
-  if len(prems) > 2:
-    return 'ERROR: there cannot be more than two predicates.'
-
-  clause_txt = point + ' = '
-  constructions = []
-
-  for prem in prems:
-    name, *args = prem
-
-    if point not in args:
-      return f'ERROR: {point} not found in predicate args.'
-
-    if not check_valid_args(pt.map_symbol(name), args):
-      return 'ERROR: Invalid predicate ' + name + ' ' + ' '.join(args)
-
-    for a in args:
-      if a != point and a not in existing_points:
-        return f'ERROR: point {a} does not exist.'
-
-    try:
-      name, args = translate_constrained_to_constructive(point, name, args)
-    except:  # pylint: disable=bare-except
-      return 'ERROR: Invalid predicate ' + name + ' ' + ' '.join(args)
-
-    if name == 'on_aline':
-      if args.count(point) > 1:
-        return f'ERROR: on_aline involves twice {point}'
-
-    constructions += [name + ' ' + ' '.join(args)]
-
-  clause_txt += ', '.join(constructions)
-  clause = pr.Clause.from_txt(clause_txt)
-
-  try:
-    g.copy().add_clause(clause, 0, DEFINITIONS)
-  except:  # pylint: disable=bare-except
-    return 'ERROR: ' + traceback.format_exc()
-
-  return clause_txt
-
-
-def insert_aux_to_premise(pstring: str, auxstring: str) -> str:
-  """Insert auxiliary constructs from proof to premise.
-
-  Args:
-    pstring: str: describing the problem to solve.
-    auxstring: str: describing the auxiliar construction.
-
-  Returns:
-    str: new pstring with auxstring inserted before the conclusion.
-  """
-  setup, goal = pstring.split(' ? ')
-  return setup + '; ' + auxstring + ' ? ' + goal
-
-
-class BeamQueue:
-  """Keep only the top k objects according to their values."""
-
-  def __init__(self, max_size: int = 512):
-    self.queue = []
-    self.max_size = max_size
-
-  def add(self, node: object, val: float) -> None:
-    """Add a new node to this queue."""
-
-    if len(self.queue) < self.max_size:
-      self.queue.append((val, node))
-      return
-
-    # Find the minimum node:
-    min_idx, (min_val, _) = min(enumerate(self.queue), key=lambda x: x[1])
-
-    # replace it if the new node has higher value.
-    if val > min_val:
-      self.queue[min_idx] = (val, node)
-
-  def __iter__(self):
-    for val, node in self.queue:
-      yield val, node
-
-  def __len__(self) -> int:
-    return len(self.queue)
-
-
 
 def main(_):
   global DEFINITIONS
@@ -434,6 +106,13 @@ def main(_):
     )
 
   this_problem = problems[_PROBLEM_NAME.value]
+
+  print("CLAUSES:")
+  for i, clause in enumerate(this_problem.clauses):
+    print(f"  Clause {i+1}: Points {clause.points} | Constructions: {[c.name for c in clause.constructions]}")
+
+
+  print("GOAL", this_problem.goal.name, this_problem.goal.args)
 
   if _MODE.value == 'ddar':
     g, _ = gh.Graph.build_problem(this_problem, DEFINITIONS)

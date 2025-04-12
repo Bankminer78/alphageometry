@@ -36,7 +36,26 @@ python -m coverage run --source=ar alphageometry.py \
 --mode=ddar \
 "${DDAR_ARGS[@]}"   
 
+cd /Users/niranjanbaskaran/git/ag2
 python -m cProfile -o alphageometry.prof alphageometry.py \
+  --alsologtostderr \
+  --problems_file=imo_ag_30.txt \
+  --problem_name=translated_imo_2022_p4 \
+  --mode=ddar
+
+Simple example from list:
+
+python -m coverage run --source=dd alphageometry.py \
+--alsologtostderr \
+--problems_file=$(pwd)/jgex_ag_231.txt \
+--problem_name=examples/complete2/000/complete_007_7_Book_LLL_L194-2.gex \
+--mode=ddar \
+"${DDAR_ARGS[@]}"   
+
+
+********** WORKING PROBLEM **************
+
+python -m coverage run --source=dd alphageometry.py \
 --alsologtostderr \
 --problems_file=$(pwd)/jgex_ag_231.txt \
 --problem_name=examples/complete2/007/complete_000_2_PWW_B016x.gex \
@@ -44,11 +63,6 @@ python -m cProfile -o alphageometry.prof alphageometry.py \
 "${DDAR_ARGS[@]}"   
 
 
-cd /Users/niranjanbaskaran/git/ag2
-python -m cProfile -o alphageometry.prof alphageometry.py \
-  --alsologtostderr \
-  --problems_file=imo_ag_30.txt \
-  --problem_name=translated_imo_2022_p4 \
-  --mode=ddar
+****************************
 
 complete_000_2_PWW_B016x.gex

@@ -108,27 +108,58 @@ class Node:
     return list(result)
 
   def merge_edge_graph(
-      self, new_edge_graph: dict[Node, dict[Node, list[Node]]]
-  ) -> None:
-    for x, xdict in new_edge_graph.items():
-      if x in self.edge_graph:
-        self.edge_graph[x].update(dict(xdict))
-      else:
-        self.edge_graph[x] = dict(xdict)
+        self, new_edge_graph: dict[Node, dict[Node, list[Node]]]
+    ) -> None:
+      #print(f"Before merging, edge_graph for Node {self.name}:")
+      for node_key, inner_dict in self.edge_graph.items():
+          print(f"  {node_key.name}: {{ ", end="")
+          for inner_key, inner_val in inner_dict.items():
+              print(f"{inner_key.name}: {inner_val} ", end="")
+          print("}")
+      
+      #print("Merging new items:")
+      for x, xdict in new_edge_graph.items():
+        if x in self.edge_graph:
+          self.edge_graph[x].update(dict(xdict))
+          print(f"  Updated {x.name}: {xdict}")
+        else:
+          self.edge_graph[x] = dict(xdict)
+          print(f"  Added new entry for {x.name}")
+      
+      #print(f"After merging, edge_graph for Node {self.name}:")
+      for node_key, inner_dict in self.edge_graph.items():
+          print(f"  {node_key.name}: {{ ", end="")
+          for inner_key, inner_val in inner_dict.items():
+              print(f"{inner_key.name}: {inner_val} ", end="")
+          print("}")
+      print("-----------------------------------")
 
   def merge(self, nodes: list[Node], deps: list[Any]) -> None:
-    for node in nodes:
-      self.merge_one(node, deps)
+      for node in nodes:
+          #print(f"Merging with node {node.name} using dependency {deps}")
+          self.merge_one(node, deps)
 
   def merge_one(self, node: Node, deps: list[Any]) -> None:
-    node.rep().set_rep(self.rep())
+      node.rep().set_rep(self.rep())
 
-    if node in self.merge_graph:
-      return
+      #print(f"Merging Node {self.name} with Node {node.name} using dependency: {deps}")
+      
+      if node in self.merge_graph:
+          #print(f"Key {node.name} already present in merge_graph; skipping dependency addition.")
+          return
 
-    self.merge_graph[node] = deps
-    node.merge_graph[self] = deps
-
+      self.merge_graph[node] = deps
+      #print(f"Added dependency for key {node.name}: {deps}")
+      
+      node.merge_graph[self] = deps
+      #print(f"Added dependency for key {self.name} in node {node.name}: {deps}")
+      
+      print(f"Updated merge_graph for Node {self.name}:")
+      for key, value in self.merge_graph.items():
+          print(f"  {key.name} -> {value}")
+      
+      #print(f"Merge complete for {self.name} and {node.name}")
+      
   def is_val(self, node: Node) -> bool:
     return (
         isinstance(self, Line)
@@ -163,16 +194,34 @@ class Node:
     return self.rep().members
 
   def connect_to(self, node: Node, deps: list[Any] = None) -> None:
+    # Ensure we have self_obj values (using name as fallback)
+    self_obj = getattr(self, 'self_obj', self.name)
+    node_obj = getattr(node, 'self_obj', node.name)
+    
+    # Get representative node
     rep = self.rep()
-
+    
+    # Update edge_graph
     if node in rep.edge_graph:
-      rep.edge_graph[node].update({self: deps})
+        rep.edge_graph[node].update({self: deps})
     else:
-      rep.edge_graph[node] = {self: deps}
-
+        rep.edge_graph[node] = {self: deps}
+    
+    # Log the edge graph in the same format as C++
+    print(f"Edge Graph for Node {rep.name}: ", end="")
+    for other_node, connections in rep.edge_graph.items():
+        print(f"{other_node.name}:{{ ", end="")
+        for source_node, dep_value in connections.items():
+            # Format deps similar to how they'd appear in C++
+            dep_str = f"\"{dep_value}\"" if dep_value else "\"\""
+            print(f"{source_node.name}:{dep_str} ", end="")
+        print("} ", end="")
+    print()
+    
+    # Handle value-object relationships
     if self.is_val(node):
-      self.set_val(node)
-      node.set_obj(self)
+        self.set_val(node)
+        node.set_obj(self)
 
   def equivs_upto(self, level: int) -> dict[Node, Node]:
     """What are the equivalent nodes up to a certain level."""

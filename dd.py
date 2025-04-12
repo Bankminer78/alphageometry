@@ -16,210 +16,17 @@
 """Implements Deductive Database (DD)."""
 
 # pylint: disable=g-multiple-import,g-importing-member
-from collections import defaultdict
 import time
 from typing import Any, Callable, Generator
 
 import geometry as gm
 import graph as gh
-import graph_utils as utils
 import numericals as nm
 import problem as pr
 from problem import Dependency, EmptyDependency
 
 # pylint: disable=protected-access
 # pylint: disable=unused-argument
-
-
-# def match_eqratio_eqratio_eqratio(
-#     g: gh.Graph,
-#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-#     theorem: pr.Theorem,
-# ) -> Generator[dict[str, gm.Point], None, None]:
-#   """Match eqratio a b c d m n p q, eqratio c d e f p q r u => eqratio a b e f m n r u."""
-#   for m1 in g.type2nodes[gm.Value]:
-#     for m2 in g.type2nodes[gm.Value]:
-#       rats1 = []
-#       for rat in m1.neighbors(gm.Ratio):
-#         l1, l2 = rat.lengths
-#         if l1 is None or l2 is None:
-#           continue
-#         rats1.append((l1, l2))
-
-#       rats2 = []
-#       for rat in m2.neighbors(gm.Ratio):
-#         l1, l2 = rat.lengths
-#         if l1 is None or l2 is None:
-#           continue
-#         rats2.append((l1, l2))
-
-#       pairs = []
-#       for (l1, l2), (l3, l4) in utils.cross(rats1, rats2):
-#         if l2 == l3:
-#           pairs.append((l1, l2, l4))
-
-#       for (l1, l12, l2), (l3, l34, l4) in utils.comb2(pairs):
-#         if (l1, l12, l2) == (l3, l34, l4):
-#           continue
-#         if l1 == l2 or l3 == l4:
-#           continue
-#         if l1 == l12 or l12 == l2 or l3 == l34 or l4 == l34:
-#           continue
-#         # d12 - d1 = d34 - d3 = m1
-#         # d2 - d12 = d4 - d34 = m2
-#         # => d2 - d1 = d4 - d3 (= m1+m2)
-#         a, b = g.two_points_of_length(l1)
-#         c, d = g.two_points_of_length(l12)
-#         m, n = g.two_points_of_length(l3)
-#         p, q = g.two_points_of_length(l34)
-#         # eqangle a b c d m n p q
-#         e, f = g.two_points_of_length(l2)
-#         r, u = g.two_points_of_length(l4)
-#         yield dict(zip('abcdefmnpqru', [a, b, c, d, e, f, m, n, p, q, r, u]))
-
-
-# def match_eqangle_eqangle_eqangle(
-#     g: gh.Graph,
-#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-#     theorem: pr.Theorem,
-# ) -> Generator[dict[str, gm.Point], None, None]:
-#   """Match eqangle a b c d m n p q, eqangle c d e f p q r u => eqangle a b e f m n r u."""
-#   for m1 in g.type2nodes[gm.Measure]:
-#     for m2 in g.type2nodes[gm.Measure]:
-#       angs1 = []
-#       for ang in m1.neighbors(gm.Angle):
-#         d1, d2 = ang.directions
-#         if d1 is None or d2 is None:
-#           continue
-#         angs1.append((d1, d2))
-
-#       angs2 = []
-#       for ang in m2.neighbors(gm.Angle):
-#         d1, d2 = ang.directions
-#         if d1 is None or d2 is None:
-#           continue
-#         angs2.append((d1, d2))
-
-#       pairs = []
-#       for (d1, d2), (d3, d4) in utils.cross(angs1, angs2):
-#         if d2 == d3:
-#           pairs.append((d1, d2, d4))
-
-#       for (d1, d12, d2), (d3, d34, d4) in utils.comb2(pairs):
-#         if (d1, d12, d2) == (d3, d34, d4):
-#           continue
-#         if d1 == d2 or d3 == d4:
-#           continue
-#         if d1 == d12 or d12 == d2 or d3 == d34 or d4 == d34:
-#           continue
-#         yield dict(zip('abcdefmnpqru', [a, b, c, d, e, f, m, n, p, q, r, u]))
-
-
-# def match_perp_perp_npara_eqangle(
-#     g: gh.Graph,
-#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-#     theorem: pr.Theorem,
-# ) -> Generator[dict[str, gm.Point], None, None]:
-#   """Match perp A B C D, perp E F G H, npara A B E F => eqangle A B E F C D G H."""
-#   dpairs = []
-#   for ang in g.vhalfpi.neighbors(gm.Angle):
-#     d1, d2 = ang.directions
-#     if d1 is None or d2 is None:
-#       continue
-#     dpairs.append((d1, d2))
-
-#   for (d1, d2), (d3, d4) in utils.comb2(dpairs):
-#     a, b = g.two_points_on_direction(d1)
-#     c, d = g.two_points_on_direction(d2)
-#     m, n = g.two_points_on_direction(d3)
-#     p, q = g.two_points_on_direction(d4)
-#     if g.check_npara([a, b, m, n]):
-#       if ({a, b}, {c, d}) == ({m, n}, {p, q}):
-#         continue
-#       if ({a, b}, {c, d}) == ({p, q}, {m, n}):
-#         continue
-
-#       yield dict(zip('ABCDEFGH', [a, b, c, d, m, n, p, q]))
-
-
-
-def match_midp_perp_cong(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match midp M A B, perp O M A B => cong O A O B."""
-  for m, a, b in g.all_midps():
-    ab = g._get_line(a, b)
-    for l in m.neighbors(gm.Line):
-      if g.check_perpl(l, ab):
-        for o in l.neighbors(gm.Point):
-          if o != m:
-            yield dict(zip('ABMO', [a, b, m, o]))
-
-
-# def match_perp_perp_ncoll_para(
-#     g: gh.Graph,
-#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-#     theorem: pr.Theorem,
-# ) -> Generator[dict[str, gm.Point], None, None]:
-#   """Match perp A B C D, perp C D E F, ncoll A B E => para A B E F."""
-#   d2d = defaultdict(list)
-#   for ang in g.vhalfpi.neighbors(gm.Angle):
-#     d1, d2 = ang.directions
-#     if d1 is None or d2 is None:
-#       continue
-#     d2d[d1] += [d2]
-#     d2d[d2] += [d1]
-
-#   for x, ys in d2d.items():
-#     if len(ys) < 2:
-#       continue
-#     c, d = g.two_points_on_direction(x)
-#     for y1, y2 in utils.comb2(ys):
-#       a, b = g.two_points_on_direction(y1)
-#       e, f = g.two_points_on_direction(y2)
-#       if nm.check_ncoll([a.num, b.num, e.num]):
-#         yield dict(zip('ABCDEF', [a, b, c, d, e, f]))
-
-
-# def match_eqangle6_ncoll_cong(
-#     g: gh.Graph,
-#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-#     theorem: pr.Theorem,
-# ) -> Generator[dict[str, gm.Point], None, None]:
-#   """Match eqangle6 A O A B B A B O, ncoll O A B => cong O A O B."""
-#   for a in g.type2nodes[gm.Point]:
-#     for b, c in utils.comb2(g.type2nodes[gm.Point]):
-#       if a == b or a == c:
-#         continue
-#       if g.check_eqangle([b, a, b, c, c, b, c, a]):
-#         if g.check_ncoll([a, b, c]):
-#           yield dict(zip('OAB', [a, b, c]))
-
-
-def match_eqangle_para(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqangle A B P Q C D P Q => para A B C D."""
-  for measure in g.type2nodes[gm.Measure]:
-    angs = measure.neighbors(gm.Angle)
-    d12, d21 = defaultdict(list), defaultdict(list)
-    for ang in angs:
-      d1, d2 = ang.directions
-      if d1 is None or d2 is None:
-        continue
-      d12[d1].append(d2)
-      d21[d2].append(d1)
-
-    for d1, d2s in d12.items():
-      a, b = g.two_points_on_direction(d1)
-      for d2, d3 in utils.comb2(d2s):
-        c, d = g.two_points_on_direction(d2)
-        e, f = g.two_points_on_direction(d3)
-        yield dict(zip('ABCDPQ', [c, d, e, f, a, b]))
 
 
 
@@ -239,50 +46,13 @@ def rotate_simtri(
     yield p[::-1]
 
 
-def match_cong_cong_cong_cyclic(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match cong O A O B, cong O B O C, cong O C O D => cyclic A B C D."""
-  for l in g.type2nodes[gm.Length]:
-    p2p = defaultdict(list)
-    for s in l.neighbors(gm.Segment):
-      a, b = s.points
-      p2p[a].append(b)
-      p2p[b].append(a)
-
-    for p, ps in p2p.items():
-      if len(ps) >= 4:
-        for a, b, c, d in utils.comb4(ps):
-          yield dict(zip('OABCD', [p, a, b, c, d]))
-
-
-def match_cong_cong_cong_ncoll_contri(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match cong A B P Q, cong B C Q R, cong C A R P, ncoll A B C => contri* A B C P Q R."""
-  record = set()
-  for a, b, p, q in g_matcher('cong'):
-    for c in g.type2nodes[gm.Point]:
-      for r in g.type2nodes[gm.Point]:
-        if any([x in record for x in rotate_simtri(a, b, c, p, q, r)]):
-          continue
-        if not g.check_ncoll([a, b, c]):
-          continue
-        if g.check_cong([b, c, q, r]) and g.check_cong([c, a, r, p]):
-          record.add((a, b, c, p, q, r))
-          yield dict(zip('ABCPQR', [a, b, c, p, q, r]))
-
-
 def match_cong_cong_eqangle6_ncoll_contri(
     g: gh.Graph,
     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
     theorem: pr.Theorem,
 ) -> Generator[dict[str, gm.Point], None, None]:
   """Match cong A B P Q, cong B C Q R, eqangle6 B A B C Q P Q R, ncoll A B C => contri* A B C P Q R."""
+  print('DD THEOREM: match_cong_cong_eqangle6_ncoll_contri')
   record = set()
   for a, b, p, q in g_matcher('cong'):
     for c in g.type2nodes[gm.Point]:
@@ -346,223 +116,16 @@ def match_eqratio6_eqangle6_ncoll_simtri(
       yield dict(zip('ABCPQR', [a, b, c, p, q, r]))
 
 
-def match_eqangle6_eqangle6_ncoll_simtri(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqangle6 B A B C Q P Q R, eqangle6 C A C B R P R Q, ncoll A B C => simtri A B C P Q R."""
-  enums = g_matcher('eqangle6')
-
-  record = set()
-  for b, a, b, c, q, p, q, r in enums:  # pylint: disable=redeclared-assigned-name,unused-variable
-    if (a, b, c) == (p, q, r):
-      continue
-    if any([x in record for x in rotate_simtri(a, b, c, p, q, r)]):
-      continue
-    if not g.check_eqangle([c, a, c, b, r, p, r, q]):
-      continue
-    if not g.check_ncoll([a, b, c]):
-      continue
-
-    mapping = dict(zip('ABCPQR', [a, b, c, p, q, r]))
-    record.add((a, b, c, p, q, r))
-    yield mapping
-
-
-def match_eqratio6_eqratio6_ncoll_simtri(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqratio6 B A B C Q P Q R, eqratio6 C A C B R P R Q, ncoll A B C => simtri* A B C P Q R."""
-  enums = g_matcher('eqratio6')
-
-  record = set()
-  for b, a, b, c, q, p, q, r in enums:  # pylint: disable=redeclared-assigned-name,unused-variable
-    if (a, b, c) == (p, q, r):
-      continue
-    if any([x in record for x in rotate_simtri(a, b, c, p, q, r)]):
-      continue
-    if not g.check_eqratio([c, a, c, b, r, p, r, q]):
-      continue
-    if not g.check_ncoll([a, b, c]):
-      continue
-
-    mapping = dict(zip('ABCPQR', [a, b, c, p, q, r]))
-    record.add((a, b, c, p, q, r))
-    yield mapping
-
-
-def match_eqangle6_eqangle6_ncoll_simtri2(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqangle6 B A B C Q R Q P, eqangle6 C A C B R Q R P, ncoll A B C => simtri2 A B C P Q R."""
-  enums = g_matcher('eqangle6')
-
-  record = set()
-  for b, a, b, c, q, r, q, p in enums:  # pylint: disable=redeclared-assigned-name,unused-variable
-    if (a, b, c) == (p, q, r):
-      continue
-    if any([x in record for x in rotate_simtri(a, b, c, p, q, r)]):
-      continue
-    if not g.check_eqangle([c, a, c, b, r, q, r, p]):
-      continue
-    if not g.check_ncoll([a, b, c]):
-      continue
-
-    mapping = dict(zip('ABCPQR', [a, b, c, p, q, r]))
-    record.add((a, b, c, p, q, r))
-    yield mapping
-
-
-def rotate_contri(
-    a: gm.Point, b: gm.Point, c: gm.Point, x: gm.Point, y: gm.Point, z: gm.Point
-) -> Generator[tuple[gm.Point, ...], None, None]:
-  for p in [(b, a, c, y, x, z), (x, y, z, a, b, c), (y, x, z, b, a, c)]:
-    yield p
-
-
-def match_eqangle6_eqangle6_ncoll_cong_contri(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqangle6 B A B C Q P Q R, eqangle6 C A C B R P R Q, ncoll A B C, cong A B P Q => contri A B C P Q R."""
-  enums = g_matcher('eqangle6')
-
-  record = set()
-  for b, a, b, c, q, p, q, r in enums:  # pylint: disable=redeclared-assigned-name,unused-variable
-    if not g.check_cong([a, b, p, q]):
-      continue
-    if (a, b, c) == (p, q, r):
-      continue
-    if any([x in record for x in rotate_contri(a, b, c, p, q, r)]):
-      continue
-    if not g.check_eqangle([c, a, c, b, r, p, r, q]):
-      continue
-
-    if not g.check_ncoll([a, b, c]):
-      continue
-
-    mapping = dict(zip('ABCPQR', [a, b, c, p, q, r]))
-    record.add((a, b, c, p, q, r))
-    yield mapping
-
-
-def match_eqratio6_eqratio6_ncoll_cong_contri(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqratio6 B A B C Q P Q R, eqratio6 C A C B R P R Q, ncoll A B C, cong A B P Q => contri* A B C P Q R."""
-  enums = g_matcher('eqratio6')
-
-  record = set()
-  for b, a, b, c, q, p, q, r in enums:  # pylint: disable=redeclared-assigned-name,unused-variable
-    if not g.check_cong([a, b, p, q]):
-      continue
-    if (a, b, c) == (p, q, r):
-      continue
-    if any([x in record for x in rotate_contri(a, b, c, p, q, r)]):
-      continue
-    if not g.check_eqratio([c, a, c, b, r, p, r, q]):
-      continue
-
-    if not g.check_ncoll([a, b, c]):
-      continue
-
-    mapping = dict(zip('ABCPQR', [a, b, c, p, q, r]))
-    record.add((a, b, c, p, q, r))
-    yield mapping
-
-
-def match_eqangle6_eqangle6_ncoll_cong_contri2(
-    g: gh.Graph,
-    g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-    theorem: pr.Theorem,
-) -> Generator[dict[str, gm.Point], None, None]:
-  """Match eqangle6 B A B C Q R Q P, eqangle6 C A C B R Q R P, ncoll A B C, cong A B P Q => contri2 A B C P Q R."""
-  enums = g_matcher('eqangle6')
-
-  record = set()
-  for b, a, b, c, q, r, q, p in enums:  # pylint: disable=redeclared-assigned-name,unused-variable
-    if not g.check_cong([a, b, p, q]):
-      continue
-    if (a, b, c) == (p, q, r):
-      continue
-    if any([x in record for x in rotate_contri(a, b, c, p, q, r)]):
-      continue
-    if not g.check_eqangle([c, a, c, b, r, q, r, p]):
-      continue
-    if not g.check_ncoll([a, b, c]):
-      continue
-
-    mapping = dict(zip('ABCPQR', [a, b, c, p, q, r]))
-    record.add((a, b, c, p, q, r))
-    yield mapping
-
-
-# def match_eqratio6_coll_ncoll_eqangle6(
-#     g: gh.Graph,
-#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-#     theorem: pr.Theorem,
-# ) -> Generator[dict[str, gm.Point], None, None]:
-#   """Match eqratio6 d b d c a b a c, coll d b c, ncoll a b c => eqangle6 a b a d a d a c."""
-#   records = set()
-#   for b, d, c in g_matcher('coll'):
-#     for a in g.all_points():
-#       if g.check_coll([a, b, c]):
-#         continue
-#       if (a, b, d, c) in records or (a, c, d, b) in records:
-#         continue
-#       records.add((a, b, d, c))
-
-#       if g.check_eqratio([d, b, d, c, a, b, a, c]):
-#         yield dict(zip('abcd', [a, b, c, d]))
-
-
-# def match_eqangle6_coll_ncoll_eqratio6(
-#     g: gh.Graph,
-#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-#     theorem: pr.Theorem,
-# ) -> Generator[dict[str, gm.Point], None, None]:
-#   """Match eqangle6 a b a d a d a c, coll d b c, ncoll a b c => eqratio6 d b d c a b a c."""
-#   records = set()
-#   for b, d, c in g_matcher('coll'):
-#     for a in g.all_points():
-#       if g.check_coll([a, b, c]):
-#         continue
-#       if (a, b, d, c) in records or (a, c, d, b) in records:
-#         continue
-#       records.add((a, b, d, c))
-
-#       if g.check_eqangle([a, b, a, d, a, d, a, c]):
-#         yield dict(zip('abcd', [a, b, c, d]))
-
-
-# def match_eqangle6_ncoll_cyclic(
-#     g: gh.Graph,
-#     g_matcher: Callable[str, list[tuple[gm.Point, ...]]],
-#     theorem: pr.Theorem,
-# ) -> Generator[dict[str, gm.Point], None, None]:
-#   """Match eqangle6 P A P B Q A Q B, ncoll P Q A B => cyclic A B P Q."""
-#   for a, b, a, c, x, y, x, z in g_matcher('eqangle6'):  # pylint: disable=redeclared-assigned-name,unused-variable
-#     if (b, c) != (y, z) or a == x:
-#       continue
-#     if nm.check_ncoll([x.num for x in [a, b, c, x]]):
-#       yield dict(zip('ABPQ', [b, c, a, x]))
-
 
 def match_all(
     name: str, g: gh.Graph
 ) -> Generator[tuple[gm.Point, ...], None, None]:
   """Match all instances of a certain relation."""
+  print(f'MATCHING {name}')
   if name in ['ncoll', 'npara', 'nperp']:
     return []
   if name == 'coll':
+    print('MATCHING coll')
     return g.all_colls()
   if name == 'para':
     return g.all_paras()
@@ -605,7 +168,7 @@ def cache_match(
 
 
 def try_to_map(
-    clause_enum: list[tuple[pr.Clause, list[tuple[gm.Point, ...]]]],
+    clause_enum: list[tuple[pr.Construction, list[tuple[gm.Point, ...]]]],
     mapping: dict[str, gm.Point],
 ) -> Generator[dict[str, gm.Point], None, None]:
   """Recursively try to match the remaining points given current mapping."""
@@ -666,10 +229,6 @@ def match_generic(
       args = [mapping[a] for a in check.args]
       if check.name == 'ncoll':
         checks_ok = g.check_ncoll(args)
-      elif check.name == 'npara':
-        checks_ok = g.check_npara(args)
-      elif check.name == 'nperp':
-        checks_ok = g.check_nperp(args)
       elif check.name == 'sameside':
         checks_ok = g.check_sameside(args)
       if not checks_ok:
@@ -681,33 +240,8 @@ def match_generic(
 
 
 BUILT_IN_FNS = {
-    'cong_cong_cong_cyclic': match_cong_cong_cong_cyclic,
-    'cong_cong_cong_ncoll_contri*': match_cong_cong_cong_ncoll_contri,
     'cong_cong_eqangle6_ncoll_contri*': match_cong_cong_eqangle6_ncoll_contri,
-    'eqangle6_eqangle6_ncoll_simtri': match_eqangle6_eqangle6_ncoll_simtri,
-    'eqangle6_eqangle6_ncoll_cong_contri': (
-        match_eqangle6_eqangle6_ncoll_cong_contri
-    ),  # pylint: disable=line-too-long
-    'eqangle6_eqangle6_ncoll_simtri2': match_eqangle6_eqangle6_ncoll_simtri2,
-    'eqangle6_eqangle6_ncoll_cong_contri2': (
-        match_eqangle6_eqangle6_ncoll_cong_contri2
-    ),  # pylint: disable=line-too-long
-    'eqratio6_eqratio6_ncoll_simtri*': match_eqratio6_eqratio6_ncoll_simtri,
-    'eqratio6_eqratio6_ncoll_cong_contri*': (
-        match_eqratio6_eqratio6_ncoll_cong_contri
-    ),  # pylint: disable=line-too-long
-    'eqangle_para': match_eqangle_para,
-    'eqratio6_eqangle6_ncoll_simtri*': match_eqratio6_eqangle6_ncoll_simtri,
-    # 'eqangle_perp_perp': match_eqangle_perp_perp,
-    # 'eqangle6_ncoll_cong': match_eqangle6_ncoll_cong,
-    # 'perp_perp_ncoll_para': match_perp_perp_ncoll_para,
-    # 'midp_perp_cong': match_midp_perp_cong,
-    # 'perp_perp_npara_eqangle': match_perp_perp_npara_eqangle,
-    # 'eqangle_eqangle_eqangle': match_eqangle_eqangle_eqangle,
-    # 'eqratio_eqratio_eqratio': match_eqratio_eqratio_eqratio,
-    # 'eqratio6_coll_ncoll_eqangle6': match_eqratio6_coll_ncoll_eqangle6,
-    # 'eqangle6_coll_ncoll_eqratio6': match_eqangle6_coll_ncoll_eqratio6,
-    # 'eqangle6_ncoll_cyclic': match_eqangle6_ncoll_cyclic,
+    'eqratio6_eqangle6_ncoll_simtri*': match_eqratio6_eqangle6_ncoll_simtri
 }
 
 
@@ -739,6 +273,7 @@ def match_one_theorem(
   if theorem.name in BUILT_IN_FNS:
     mps = BUILT_IN_FNS[theorem.name](g, cache, theorem)
   else:
+    print(f'MATCHING {theorem.name}')
     mps = match_generic(g, cache, theorem)
 
   mappings = []
@@ -776,7 +311,10 @@ def match_all_theorems(
 
     mappings = match_one_theorem(g, cache, theorem)
     if len(mappings):  # pylint: disable=g-explicit-length-test
+      print(f'Matching {name} with {len(mappings)} mappings')
       theorem2mappings[theorem] = list(mappings)
+
+  
   return theorem2mappings
 
 
